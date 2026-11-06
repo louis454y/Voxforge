@@ -1,3 +1,4 @@
+
 name: Build VST3 (Windows)
 
 on:
@@ -7,23 +8,40 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Configure
-        run: cmake -B build -G "Visual Studio 17 2022" -A x64
+      - name: Verify Visual Studio
+        shell: pwsh
+        run: |
+          Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022"
 
-      - name: Build
+      - name: Configure CMake
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Build VST3
         run: cmake --build build --config Release --parallel
 
-      - name: Package
+      - name: Package VST3
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
-          Copy-Item -Recurse "build/VoxForge_artefacts/Release/VST3/VoxForge.vst3" dist/
+          $plugin = "build/VoxForge_artefacts/Release/VST3/VoxForge.vst3"
 
-      - uses: actions/upload-artifact@v4
+          if (!(Test-Path $plugin)) {
+            Write-Error "No se encontró VoxForge.vst3"
+            Get-ChildItem build -Recurse -Directory
+            exit 1
+          }
+
+          Copy-Item -Recurse $plugin dist/
+
+      - name: Upload VST3
+        uses: actions/upload-artifact@v4
         with:
           name: VoxForge-VST3-Windows
-          path: dist
+          path: dist/
+          if-no-files-found: error
